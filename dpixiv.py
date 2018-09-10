@@ -15,8 +15,8 @@ class DPixivIllusts:
     def get(self, urls, params=None, ref=None, list=False):
         async def fetch_for_sending(url, session, params=None, dict_=False):
             if dict_:
-                async with session.get(url['url'], headers={'Referer': url['url']}) as response:
-                    return {'data': await response.text(), 'id': url['id']}
+                async with session.get(url['url']) as response: #headers={'Referer': url['url']}
+                    return {'data': await response.text(), 'id': url['id'] if 'id' in url else None}
             else:
                 async with session.get(url, params=params) as response:
                     self.cookies.update(dict(response.cookies))
@@ -44,7 +44,7 @@ class DPixivIllusts:
     def auth(self, login=None, password=None): #Use to set up all cookies use again to reauth
         login = self.login if not login else login
         password = self.password if not password else password
-        prepost_key = re.search('name\=\"post_key\" value\=\"([a-z0-9]+)\"', self.get('https://accounts.pixiv.net/login?lang=en&source=pc&view_type=page&ref=wwwtop_accounts_index'))
+        prepost_key = re.search(r'name\=\"post_key\" value\=\"([a-z0-9]+)\"', self.get('https://accounts.pixiv.net/login?lang=en&source=pc&view_type=page&ref=wwwtop_accounts_index'))
         login_params = {
             'password': password,
             'pixiv_id': login,
@@ -56,7 +56,7 @@ class DPixivIllusts:
             'source': 'pc'
         }
         self.post('https://accounts.pixiv.net/api/login?lang=en', data=login_params)
-        prett = re.search('name\=\"tt\" value\=\"([a-z0-9]+)\"', self.get('https://www.pixiv.net'))
+        prett = re.search(r'name\=\"tt\" value\=\"([a-z0-9]+)\"', self.get('https://www.pixiv.net'))
         self.tt = prett[1] if prett else None
 
     def recommender(self, sample_illusts=None, count=100): #Return list of recommendations or None if error; sample_illusts - str of id or list of str of id; can be executed without parameters and show all recommendations
@@ -68,10 +68,35 @@ class DPixivIllusts:
         if not sample_illusts:
             rec_params.update({'mode': 'all', 'page': 'discovery'})
         else:
-            rec_params.update({'sample_illusts': ','.join(sample_illusts)})
+            rec_params.update({'sample_illusts': ','.join(sample_illusts) if type(sample_illusts) == list else sample_illusts})
         rec_resp = json.loads(self.get('http://www.pixiv.net/rpc/recommender.php', params=rec_params, ref='https://www.pixiv.net/discovery'))
         return [str(i) for i in rec_resp['recommendations']] if 'recommendations' in rec_resp else None
-
+    
+    def similar(self, id, limit=10):
+        sim_resp = json.loads(self.get('https://www.pixiv.net/ajax/illust/{}/recommend/init?limit={}'.format(id, str(limit))))
+        return [one['workId'] for one in sim_resp['body']['illusts']] if not sim_resp['error'] else None
+    
+    def bookmarks(self, page=None, max_count=10):
+        rec_sample = re.compile(r'illustRecommendSampleIllust \= \"([0-9\,]+)\"\;')
+        if page:
+            res_parse = rec_sample.search(self.get('https://www.pixiv.net/bookmark.php?p=' + str(page)))
+            return res_parse[1].split(',') if res_parse else None
+        else:
+            results = []
+            pg = 1
+            end = False
+            while not end:
+                prepared = self.get([{'url': 'https://www.pixiv.net/bookmark.php?p=' + str(i)} for i in range(pg, int(max_count) + pg)], list=True)
+                for one in prepared:
+                    res_parse = rec_sample.search(one['data'])
+                    if res_parse:
+                        results.extend(res_parse[1].split(','))
+                    else:
+                        end = True
+                        break
+                pg += max_count
+            return results if results else None
+                
     def illust_list(self, illusts): #Returns list of descriptions of illusts; illusts - list of str of id
         list_params = {
             'exclude_muted_illusts': 1,
@@ -80,9 +105,12 @@ class DPixivIllusts:
             'tt': self.tt
         }
         return json.loads(self.get('https://www.pixiv.net/rpc/illust_list.php', params=list_params, ref='https://www.pixiv.net/discovery'))
-
+        
+    def info(self, id):
+        find_info = re.search('\}\)\((\{token\:.+\})\)\;\<\/script\>', self.get('https://www.pixiv.net/member_illust.php?mode=medium&illust_id=' + id))
+        return json.loads(re.sub(r'([\,\{ ])(\w+):', r'\1"\2":', find_info[1].replace(',}','}'))) if find_info else None
+        
     def urls(self, illusts): #Returns list of urls with id
-        illus = self.illust_list(illusts)
-        pattern_urls = re.compile("\"urls\"\:(\{.+\}),\"tags\"")
-        pages = self.get([{'url': 'https://www.pixiv.net/member_illust.php?mode=medium&illust_id=' + one['illust_id'], 'id': one['illust_id']} for one in illus], list=True)
+        pattern_urls = re.compile(r'\"urls\"\:(\{.+\}),\"tags\"')
+        pages = self.get([{'url': 'https://www.pixiv.net/member_illust.php?mode=medium&illust_id=' + one, 'id': one} for one in illusts], list=True)
         return [{'urls': json.loads(pattern_urls.search(page['data'])[1]), 'id': page['id']} for page in pages]
