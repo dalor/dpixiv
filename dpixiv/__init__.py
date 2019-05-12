@@ -241,4 +241,6 @@ class DPixivIllusts:
             'illust_ids': ','.join(ids),
             'tt': self.tt
         }
-        return json.loads(self.get('https://www.pixiv.net/rpc/index.php', params=params))
+        response = json.loads(self.get('https://www.pixiv.net/rpc/index.php', params=params))
+        if not response['error']:
+            return list(response['body'].values())
