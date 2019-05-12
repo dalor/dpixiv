@@ -231,3 +231,14 @@ class DPixivIllusts:
     def info_packs(self, ids, token=False): #Return all info; get list of ids
         pages = self.__get_list_with_id([{'id': one, 'url': 'https://www.pixiv.net/member_illust.php', 'params': {'mode': 'medium', 'illust_id': one}} for one in ids])
         return [self.__parse_info(pages[ilust_id], token) for ilust_id in ids]
+
+    def fast_info(self, id):
+        return self.fast_info_packs([id])
+
+    def fast_info_packs(self, ids):
+        params = {
+            'mode': 'get_illust_detail_by_ids',
+            'illust_ids': ','.join(ids),
+            'tt': self.tt
+        }
+        return json.loads(self.get('https://www.pixiv.net/rpc/index.php', params=params))
