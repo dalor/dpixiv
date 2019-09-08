@@ -20,6 +20,7 @@ class DPixivIllusts:
         self.password = password
         self.headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.79 Safari/537.36'}
         self.tt = tt
+        self.is_auth = False
         self.cookies = {'PHPSESSID': session} if session else {}
         self.proxy = proxy
         self.auth()
@@ -99,7 +100,7 @@ class DPixivIllusts:
     def auth(self): #Use to set up all cookies use again to reauth
         async def work_in_one_session():
             async with aiohttp.ClientSession(headers=self.headers, cookies=self.cookies) as session:
-                if not await self.is_auth(session):
+                if not await self.__is_auth(session):
                     login_page = await (self.__fetch_get('https://accounts.pixiv.net/login?lang=en&source=pc&view_type=page&ref=wwwtop_accounts_index', session))
                     prepost_key = post_key_search.search(login_page)
                     login_params = {
@@ -112,19 +113,23 @@ class DPixivIllusts:
                         'return_to': 'https://www.pixiv.net/',
                         'source': 'pc'
                     }
-                    await (self.__fetch_post('https://accounts.pixiv.net/api/login?lang=en', session, data=login_params))
-                    await self.__set_tt(session)
+                    auth = json.loads(await (self.__fetch_post('https://accounts.pixiv.net/api/login?lang=en', session, data=login_params)))
+                    if 'body' in auth and 'success' in auth['body']:
+                        self.is_auth = True
+                    # await self.__set_tt(session)
                     clear_cookies = {cookie.key:cookie.value for cookie in session.cookie_jar if cookie.key == 'PHPSESSID'}
                     self.cookies = clear_cookies
                 # elif not self.tt:
                 #     await self.__set_tt(session)
+                else:
+                    self.is_auth = True
         asyncio.new_event_loop().run_until_complete(work_in_one_session())
 
     # async def __set_tt(self, session):
     #     prett = tt_search.search(await (self.__fetch_get('https://www.pixiv.net', session)))
     #     self.tt = prett[1] if prett else None
 
-    async def is_auth(self, session):
+    async def __is_auth(self, session):
         get_result = await (self.__fetch_get('https://www.pixiv.net/rpc/index.php?mode=message_thread_unread_count', session))
         result = json.loads(get_result)
         if 'error' in result and not result['error']:
