@@ -99,7 +99,7 @@ class DPixivIllusts:
     def auth(self): #Use to set up all cookies use again to reauth
         async def work_in_one_session():
             async with aiohttp.ClientSession(headers=self.headers, cookies=self.cookies) as session:
-                if not await self.__is_auth(session):
+                if not await self.is_auth(session):
                     login_page = await (self.__fetch_get('https://accounts.pixiv.net/login?lang=en&source=pc&view_type=page&ref=wwwtop_accounts_index', session))
                     prepost_key = post_key_search.search(login_page)
                     login_params = {
@@ -116,15 +116,15 @@ class DPixivIllusts:
                     await self.__set_tt(session)
                     clear_cookies = {cookie.key:cookie.value for cookie in session.cookie_jar if cookie.key == 'PHPSESSID'}
                     self.cookies = clear_cookies
-                elif not self.tt:
-                    await self.__set_tt(session)
+                # elif not self.tt:
+                #     await self.__set_tt(session)
         asyncio.new_event_loop().run_until_complete(work_in_one_session())
 
-    async def __set_tt(self, session):
-        prett = tt_search.search(await (self.__fetch_get('https://www.pixiv.net', session)))
-        self.tt = prett[1] if prett else None
+    # async def __set_tt(self, session):
+    #     prett = tt_search.search(await (self.__fetch_get('https://www.pixiv.net', session)))
+    #     self.tt = prett[1] if prett else None
 
-    async def __is_auth(self, session):
+    async def is_auth(self, session):
         get_result = await (self.__fetch_get('https://www.pixiv.net/rpc/index.php?mode=message_thread_unread_count', session))
         result = json.loads(get_result)
         if 'error' in result and not result['error']:
@@ -136,7 +136,7 @@ class DPixivIllusts:
         rec_params = {
             'type': 'illust',
             'num_recommendations': count,
-            'tt': self.tt
+            # 'tt': self.tt
         }
         if not sample_illusts:
             rec_params.update({'mode': 'all', 'page': 'discovery'})
@@ -208,7 +208,7 @@ class DPixivIllusts:
             'exclude_muted_illusts': 1,
             'illust_ids': ','.join(illusts),
             'page': 'discover',
-            'tt': self.tt
+            # 'tt': self.tt
         }
         return json.loads(self.get('https://www.pixiv.net/rpc/illust_list.php', params=list_params, ref='https://www.pixiv.net/discovery'))
 
@@ -239,7 +239,7 @@ class DPixivIllusts:
         params = {
             'mode': 'get_illust_detail_by_ids',
             'illust_ids': ','.join(ids),
-            'tt': self.tt
+            # 'tt': self.tt
         }
         response = json.loads(self.get('https://www.pixiv.net/rpc/index.php', params=params))
         if not response['error']:
