@@ -53,7 +53,7 @@ following_ids = pix.new_work_following(page=None, from_page=1, to_page=1000000, 
 # Use page to show only one page
 
 # Search by name
-search_ids = pix.search(page=None, from_page=1, to_page=1000000, step_count=10)
+search_ids = pix.search(word, page=None, from_page=1, to_page=1000000, step_count=10)
 # Use page to show only one page
 
 # Add tag (set token=True to info and get by 'token' key)
