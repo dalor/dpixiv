@@ -11,17 +11,22 @@ pip install dpixiv
 ```python
 from dpixiv import DPixivIllusts
 
-pix = DPixivIllusts(login, password, session=None, tt=None, proxy=None) #Auth
+pix = DPixivIllusts(session=None, proxy=None)
 
 ### Attributes: ###
 
-pix.login    #login
-pix.password #password 
+pix.is_auth  #(True|False)
 pix.session  #session
-pix.tt       #tt :-)
 pix.proxy    #http proxy 'http://{ip}:{port}'
 
 ### Methods:    ###
+
+# Auth
+pix.auth(login, password, captcha_token, post_key=None)
+# To get capthca_token go to https://accounts.pixiv.net/login
+# and write in browser console command:
+# document.getElementById('recaptcha-v3-token').value
+# Do it fast and save pix.session
 
 # Get lists of ids that recommended to user by pixiv
 pictures_ids = pix.recommender(sample_illusts=None, count=100)
