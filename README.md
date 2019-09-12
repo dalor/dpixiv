@@ -22,7 +22,7 @@ pix.proxy    #http proxy 'http://{ip}:{port}'
 ### Methods:    ###
 
 # Auth
-pix.auth(login, password, captcha_token, post_key=None)
+pix.auth(login, password, captcha_token)
 # To get capthca_token go to https://accounts.pixiv.net/login
 # and write in browser console command:
 # document.getElementById('recaptcha-v3-token').value

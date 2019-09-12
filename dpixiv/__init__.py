@@ -93,14 +93,13 @@ class DPixivIllusts:
                 return await (self.__fetch_post(url, session, data, ref, csrf_token))
         return asyncio.new_event_loop().run_until_complete(__post(url, params, ref, csrf_token))
 
-    def auth(self, login, password, captcha_token, post_key=None): #Use to set up all cookies use again to reauth
-        async def work_in_one_session(post_key):
+    def auth(self, login, password, captcha_token): #Use to set up all cookies use again to reauth
+        async def work_in_one_session():
             async with aiohttp.ClientSession(headers=self.headers, cookies=self.cookies) as session:
                 
-                if not post_key:
-                    login_page = await (self.__fetch_get('https://accounts.pixiv.net/login?lang=en&source=pc&view_type=page&ref=wwwtop_accounts_index', session))
-                    prepost_key = post_key_search.search(login_page)
-                    post_key = prepost_key[1] if prepost_key else None
+                login_page = await (self.__fetch_get('https://accounts.pixiv.net/login?lang=en&source=pc&view_type=page&ref=wwwtop_accounts_index', session))
+                prepost_key = post_key_search.search(login_page)
+                post_key = prepost_key[1] if prepost_key else None
 
                 login_params = {
                         'password': password,
@@ -119,11 +118,11 @@ class DPixivIllusts:
                 if 'body' in auth and 'success' in auth['body']:
                     self._is_auth = True
 
-                    await (self.__fetch_get('https://www.pixiv.net', session)) #To get global session
+                    # await (self.__fetch_get('https://www.pixiv.net', session)) #To get global session
 
                     self.cookies = {cookie.key:cookie.value for cookie in session.cookie_jar if cookie.key == 'PHPSESSID'}
 
-        asyncio.new_event_loop().run_until_complete(work_in_one_session(post_key))
+        asyncio.new_event_loop().run_until_complete(work_in_one_session())
 
     @property
     def is_auth(self):
@@ -159,8 +158,6 @@ class DPixivIllusts:
 
     def similar(self, id, limit=10):
         sim_resp = json.loads(self.get('https://www.pixiv.net/ajax/illust/{}/recommend/init?limit={}'.format(id, limit)))
-        from pprint import pprint
-        pprint(sim_resp['body']['illusts'])
         return [one['id'] for one in sim_resp['body']['illusts']] if not sim_resp['error'] else None
 
     def __load_ids_from_pages(self, url, parser, page, from_page, to_page, step_count, params={}):
