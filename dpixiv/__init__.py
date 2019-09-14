@@ -222,7 +222,7 @@ class DPixivIllusts:
         }
         return json.loads(self.get('https://www.pixiv.net/rpc/illust_list.php', params=list_params, ref='https://www.pixiv.net/discovery'))
 
-    def __parse_info(self, page, token):
+    def __parse_info_with_token(self, page):
         find_json = info_json_pattern.search(page)
         if find_json:
             result = json.loads(info_fix_json.sub(r'\1"\2":', find_json[1].replace(',}','}'))).get('preload')
@@ -230,17 +230,28 @@ class DPixivIllusts:
                 result = result.get('illust')
                 if result:
                     result = result.get(next(iter(result)))
-                    if token:
-                        token = find_token.search(page)
-                        result['token'] = token[1] if token else None
+                    token = find_token.search(page)
+                    result['token'] = token[1] if token else None
                     return result
 
+    def __check_json_response(self, response):
+        response = json.loads(response)
+        if not response['error']:
+            return response['body']
+
     def info(self, id, token=False): #Return all info; get one id
-        return self.__parse_info(self.get('https://www.pixiv.net/member_illust.php', params={'mode': 'medium', 'illust_id': id}), token)
+        if token:
+            return self.__parse_info_with_token(self.get('https://www.pixiv.net/member_illust.php', params={'mode': 'medium', 'illust_id': id}))
+        else:
+            return self.__check_json_response(self.get('https://www.pixiv.net/ajax/illust/{}'.format(id)))
 
     def info_packs(self, ids, token=False): #Return all info; get list of ids
-        pages = self.__get_list_with_id([{'id': one, 'url': 'https://www.pixiv.net/member_illust.php', 'params': {'mode': 'medium', 'illust_id': one}} for one in ids])
-        return [self.__parse_info(pages[ilust_id], token) for ilust_id in ids]
+        if token:
+            pages = self.__get_list_with_id([{'id': one, 'url': 'https://www.pixiv.net/member_illust.php', 'params': {'mode': 'medium', 'illust_id': one}} for one in ids])
+            return [self.__parse_info_with_token(pages[ilust_id]) for ilust_id in ids]
+        else:
+            responses = self.__get_list_with_id([{'id': id, 'url': 'https://www.pixiv.net/ajax/illust/{}'.format(id)} for id in ids])
+            return [self.__check_json_response(responses[ilust_id]) for ilust_id in ids]
 
     def fast_info(self, id):
         return self.fast_info_packs([id])
@@ -250,6 +261,25 @@ class DPixivIllusts:
             'mode': 'get_illust_detail_by_ids',
             'illust_ids': ','.join(ids)
         }
-        response = json.loads(self.get('https://www.pixiv.net/rpc/index.php', params=params))
-        if not response['error']:
-            return list(response['body'].values())
+        response = self.__check_json_response(self.get('https://www.pixiv.net/rpc/index.php', params=params))
+        if response:
+            return response.values()
+
+    def __checking_ranking_response(self, response):
+        response = json.loads(response).get('contents')
+        if response:
+            return [item['illust_id'] for item in response]
+
+    def ranking(self, mode, page=None, date=None): #Return 50 ids | date YYYYMMDD
+        params = {'mode': mode, 'format': 'json'}
+        if page: params['p'] = page
+        if date: params['date'] = date
+        response = json.loads(self.get('https://www.pixiv.net/ranking.php', params=params)).get('contents')
+        if response:
+            return [item['illust_id'] for item in response]
+
+    def ranking_packs(self, mode, page=None, date=None, from_page=1, to_page=10, step_count=10):
+        params = {'mode': mode, 'format': 'json'}
+        if page: params['p'] = page
+        if date: params['date'] = date
+        return self.__load_ids_from_pages('https://www.pixiv.net/ranking.php', self.__checking_ranking_response, page, from_page, to_page, step_count, params)

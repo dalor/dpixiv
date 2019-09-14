@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="dpixiv",
-    version="4.1.0",
+    version="4.2.0",
     author="dalor",
     author_email="dalor@i.ua",
     description="Tool to simple use pixiv api of site (Python >= 3.5)",
